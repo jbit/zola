@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::result::Result as StdResult;
 
 use chrono::Utc;
 use globset::{Glob, GlobSet, GlobSetBuilder};
+use serde::de::{Deserialize, Deserializer};
 use serde_derive::{Deserialize, Serialize};
 use syntect::parsing::{SyntaxSet, SyntaxSetBuilder};
 use toml;
@@ -122,6 +124,19 @@ impl Default for LinkChecker {
     }
 }
 
+fn string_or_array<'de, D: Deserializer<'de>>(de: D) -> StdResult<Vec<String>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrArray {
+        String(String),
+        Array(Vec<String>),
+    }
+    match StringOrArray::deserialize(de)? {
+        StringOrArray::String(s) => Ok(vec![s]),
+        StringOrArray::Array(v) => Ok(v),
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -159,9 +174,10 @@ pub struct Config {
     pub generate_feed: bool,
     /// The number of articles to include in the feed. Defaults to including all items.
     pub feed_limit: Option<usize>,
-    /// The filename to use for feeds. Used to find the template, too.
+    /// The filename(s) to use for feeds. Used to find the template, too.
     /// Defaults to "atom.xml", with "rss.xml" also having a template provided out of the box.
-    pub feed_filename: String,
+    #[serde(deserialize_with = "string_or_array")]
+    pub feed_filename: Vec<String>,
     /// If set, files from static/ will be hardlinked instead of copied to the output dir.
     pub hard_link_static: bool,
 
@@ -279,12 +295,14 @@ impl Config {
 
     /// Makes a url, taking into account that the base url might have a trailing slash
     pub fn make_permalink(&self, path: &str) -> String {
-        let trailing_bit =
-            if path.ends_with('/') || path.ends_with(&self.feed_filename) || path.is_empty() {
-                ""
-            } else {
-                "/"
-            };
+        let trailing_bit = if path.ends_with('/')
+            || self.feed_filename.iter().any(|feed_filename| path.ends_with(feed_filename))
+            || path.is_empty()
+        {
+            ""
+        } else {
+            "/"
+        };
 
         // Index section with a base url that has a trailing slash
         if self.base_url.ends_with('/') && path == "/" {
@@ -390,7 +408,7 @@ impl Default for Config {
             languages: Vec::new(),
             generate_feed: false,
             feed_limit: None,
-            feed_filename: "atom.xml".to_string(),
+            feed_filename: vec!["atom.xml".to_string()],
             hard_link_static: false,
             taxonomies: Vec::new(),
             compile_sass: false,
@@ -680,5 +698,33 @@ languages = [
         let config = Config::parse(config_str);
         let err = config.unwrap_err();
         assert_eq!("Default language `fr` should not appear both in `config.default_language` and `config.languages`", format!("{}", err));
+    }
+
+    #[test]
+    fn single_feed_filename() {
+        let config_str = r#"
+title = "My site"
+base_url = "example.com"
+feed_filename = "feed.xml"
+        "#;
+
+        let config = Config::parse(config_str).unwrap();
+        let v = config.feed_filename;
+        assert_eq!(v.len(), 1);
+        assert_eq!(v, vec!["feed.xml"]);
+    }
+
+    #[test]
+    fn multiple_feed_filename() {
+        let config_str = r#"
+title = "My site"
+base_url = "example.com"
+feed_filename = ["feed1.xml", "feed2.xml", "feed3.xml"]
+        "#;
+
+        let config = Config::parse(config_str).unwrap();
+        let v = config.feed_filename;
+        assert_eq!(v.len(), 3);
+        assert_eq!(v, vec!["feed1.xml", "feed2.xml", "feed3.xml"]);
     }
 }

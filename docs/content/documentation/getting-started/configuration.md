@@ -37,10 +37,13 @@ highlight_theme = "base16-ocean-dark"
 # When set to "true", a feed is automatically generated.
 generate_feed = false
 
-# The filename to use for the feed. Used as the template filename, too.
+# The filename(s) to use for the feed. Used as the template filename, too.
 # Defaults to "atom.xml", which has a builtin template that renders an Atom 1.0 feed.
 # There is also a builtin template "rss.xml" that renders an RSS 2.0 feed.
-# feed_filename = "atom.xml"
+# Example:
+#   feed_filename = "atom.xml"
+# Multiple feed example: 
+#   feed_filename = ["atom.xml", "rss.xml"]
 
 # The number of articles to include in the feed. All items are included if
 # this limit is not set (the default).

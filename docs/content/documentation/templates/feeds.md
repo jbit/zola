@@ -15,6 +15,8 @@ for `atom.xml` (in the preferred Atom 1.0 format), and `rss.xml` (in the RSS
 2.0 format). If you choose a different filename (e.g. `feed.xml`), you will
 need to provide a template yourself.
 
+If `feed_filename` is an array of strings, then multiple feeds are generated.
+
 **Only pages with a date will be available.**
 
 The feed template gets five variables:

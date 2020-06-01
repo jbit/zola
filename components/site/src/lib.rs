@@ -1110,34 +1110,36 @@ impl Site {
         context.insert("config", &self.config);
         context.insert("lang", lang);
 
-        let feed_filename = &self.config.feed_filename;
-        let feed_url = if let Some(ref base) = base_path {
-            self.config
-                .make_permalink(&base.join(feed_filename).to_string_lossy().replace('\\', "/"))
-        } else {
-            self.config.make_permalink(feed_filename)
-        };
-
-        context.insert("feed_url", &feed_url);
-
         if let Some((taxonomy, item)) = taxonomy_and_item {
             context.insert("taxonomy", taxonomy);
             context.insert("term", &SerializedTaxonomyItem::from_item(item));
         }
 
-        let feed = &render_template(feed_filename, &self.tera, context, &self.config.theme)?;
+        for feed_filename in &self.config.feed_filename {
+            let mut context = context.clone();
+            let feed_url = if let Some(ref base) = base_path {
+                self.config
+                    .make_permalink(&base.join(feed_filename).to_string_lossy().replace('\\', "/"))
+            } else {
+                self.config.make_permalink(feed_filename)
+            };
 
-        if let Some(ref base) = base_path {
-            let mut output_path = self.output_path.clone();
-            for component in base.components() {
-                output_path.push(component);
-                if !output_path.exists() {
-                    create_directory(&output_path)?;
+            context.insert("feed_url", &feed_url);
+
+            let feed = &render_template(feed_filename, &self.tera, context, &self.config.theme)?;
+
+            if let Some(ref base) = base_path {
+                let mut output_path = self.output_path.clone();
+                for component in base.components() {
+                    output_path.push(component);
+                    if !output_path.exists() {
+                        create_directory(&output_path)?;
+                    }
                 }
+                create_file(&output_path.join(feed_filename), feed)?;
+            } else {
+                create_file(&self.output_path.join(feed_filename), feed)?;
             }
-            create_file(&output_path.join(feed_filename), feed)?;
-        } else {
-            create_file(&self.output_path.join(feed_filename), feed)?;
         }
         Ok(())
     }

@@ -395,7 +395,7 @@ pub fn after_template_change(site: &mut Site, path: &Path) -> Result<()> {
 
     match filename {
         "sitemap.xml" => site.render_sitemap(),
-        filename if filename == site.config.feed_filename => {
+        filename if site.config.feed_filename.iter().any(|feed| filename == feed) => {
             // FIXME: this is insufficient; for multilingual sites, it’s rendering the wrong
             // content into the root feed, and it’s not regenerating any of the other feeds (other
             // languages or taxonomies with feed enabled).
